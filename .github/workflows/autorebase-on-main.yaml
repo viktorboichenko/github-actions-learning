@@ -52,14 +52,14 @@ jobs:
               echo "✅ Successfully rebased PR #$PR."
           
               # Post a success comment to the PR
-              gh pr comment "$PR" --body "✅ Successfully rebased"
+              gh pr comment "$PR" --body "✅ Successfully rebased by **${{ github.workflow }}**"
           
             else
               echo "⚠️ Skipping PR #$PR. Rebase failed."
               echo "❌ Error Details: $OUTPUT"
 
               # Post a failure comment to the PR
-              gh pr comment "$PR" --body "❌ Failed to rebase automatically"
+              gh pr comment "$PR" --body "❌ Failed to rebase automatically by **${{ github.workflow }}**"
             fi
           done
           echo "----------------------------------------"
