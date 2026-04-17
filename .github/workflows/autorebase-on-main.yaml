@@ -13,7 +13,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - name: Checkout (Optional but recommended)
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Rebase PRs via GitHub CLI
@@ -50,9 +50,27 @@ jobs:
           
             if [ $EXIT_CODE -eq 0 ]; then
               echo "✅ Successfully rebased PR #$PR."
+          
+              # Post a success comment to the PR
+              gh pr comment "$PR" --body "✅ **Autorebase successful.** This PR has been brought up to date with \`main\`."
+          
             else
               echo "⚠️ Skipping PR #$PR. Rebase failed."
               echo "❌ Error Details: $OUTPUT"
+          
+              # Post a failure comment to the PR using heredoc to safely handle multi-line strings and quotes in the output
+              cat <<EOF | gh pr comment "$PR" --body-file -
+              ⚠️ **Autorebase failed.** This is usually due to a merge conflict or branch protection rules. Please resolve manually.
+          
+              <details>
+              <summary>View Error Log</summary>
+          
+              \`\`\`text
+              $OUTPUT
+              \`\`\`
+          
+              </details>
+              EOF
             fi
           done
           echo "----------------------------------------"
