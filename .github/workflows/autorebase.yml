@@ -1,0 +1,19 @@
+name: autorebase.yaml
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rebase tagged PRs
+        uses: peter-evans/rebase@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          include-labels: "--auto-rebase"
