@@ -18,12 +18,11 @@ jobs:
 
       - name: Rebase PRs via GitHub CLI
         env:
-          # Use GITHUB_TOKEN or a custom Personal Access Token (PAT)
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "Fetching all open PRs with the '--autorebase' label..."
           
-          # 1. Use the GitHub CLI to find the PR numbers and output them as a list
+          # 1. Use the GitHub CLI to find the PR numbers
           PR_NUMBERS=$(gh pr list --state open --label "--autorebase" --json number --jq '.[].number')
           
           # 2. Check if the list is empty
@@ -32,18 +31,28 @@ jobs:
             exit 0
           fi
           
+          # Convert the newline-separated list to a single line for cleaner logging
+          PR_LIST_INLINE=$(echo "$PR_NUMBERS" | tr '\n' ' ')
+          echo "Target PRs to rebase: $PR_LIST_INLINE"
+          
           # 3. Loop through each PR number
           for PR in $PR_NUMBERS; do
             echo "----------------------------------------"
             echo "Attempting to rebase PR #$PR..."
           
-            # 4. Attempt the rebase. 
-            # If it succeeds, it prints success. 
-            # If it fails (due to merge conflicts), it catches the error, prints a warning, and moves to the next PR.
-            if gh pr update-branch "$PR" --rebase; then
+            # 4. Attempt the rebase safely. 
+            # We temporarily turn off 'exit-on-error' (set +e) so a failed rebase doesn't crash the whole job.
+            set +e 
+            # 2>&1 redirects standard error into standard output so we can capture both
+            OUTPUT=$(gh pr update-branch "$PR" --rebase 2>&1)
+            EXIT_CODE=$?
+            set -e # Turn 'exit-on-error' back on for safety
+          
+            if [ $EXIT_CODE -eq 0 ]; then
               echo "✅ Successfully rebased PR #$PR."
             else
-              echo "⚠️ Skipping PR #$PR. This is usually due to merge conflicts requiring manual resolution."
+              echo "⚠️ Skipping PR #$PR. Rebase failed."
+              echo "❌ Error Details: $OUTPUT"
             fi
           done
           echo "----------------------------------------"
