@@ -23,7 +23,14 @@ jobs:
           echo "Fetching all open PRs with the '--autorebase' label..."
           
           # 1. Use the GitHub CLI to find the PR numbers
-          PR_NUMBERS=$(gh pr list --state open --label "--autorebase" --json number --jq '.[].number')
+          # --state open: Only look at open PRs
+          # --label: Only PRs with the --autorebase label
+          # --json / --jq: Output as { "number": 105 } JSON and parse just the PR numbers
+          PR_NUMBERS=$(gh pr list \
+            --state open \
+            --label "--autorebase" \
+            --json number \
+            --jq '.[].number')
           
           # 2. Check if the list is empty
           if [ -z "$PR_NUMBERS" ]; then
@@ -32,7 +39,7 @@ jobs:
           fi
           
           # Convert the newline-separated list to a single line for cleaner logging
-          PR_LIST_INLINE=$(echo "$PR_NUMBERS" | tr '\n' ' ')
+          PR_LIST_INLINE=$(echo "$PR_NUMBERS" | tr '\n' ', ')
           echo "Target PRs to rebase: $PR_LIST_INLINE"
           
           # 3. Loop through each PR number
