@@ -1,6 +1,4 @@
 # github-actions-learning
 Linkedin learnining course Learning GitHub Actions: Event-Driven Automation for Your Codebase
 
-new line in my PR
-
-add something in feature 4
+This is a github actions playground
