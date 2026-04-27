@@ -22,52 +22,42 @@ jobs:
         run: |
           echo "Fetching all open PRs with the '--autorebase' label..."
           
-          # 1. Use the GitHub CLI to find the PR numbers
-          # --state open: Only look at open PRs
-          # --label: Only PRs with the --autorebase label
-          # --json / --jq: Output as { "number": 105 } JSON and parse just the PR numbers
-          PR_NUMBERS=$(gh pr list \
+          # 1. Fetch PR numbers directly into a Bash array for safer iteration
+          mapfile -t PR_ARRAY < <(gh pr list \
             --state open \
             --label "--autorebase" \
             --json number \
             --jq '.[].number')
           
-          # 2. Check if the list is empty
-          if [ -z "$PR_NUMBERS" ]; then
+          # 2. Check if the array is empty
+          if [ ${#PR_ARRAY[@]} -eq 0 ]; then
             echo "No open PRs found with the '--autorebase' label. Exiting cleanly."
             exit 0
           fi
           
-          # Convert the newline-separated list to a single line for cleaner logging
-          PR_LIST_INLINE=$(echo "$PR_NUMBERS" | tr '\n' ', ')
-          echo "Target PRs to rebase: $PR_LIST_INLINE"
+          echo "Target PRs to rebase: ${PR_ARRAY[*]}"
           
-          # 3. Loop through each PR number
-          for PR in $PR_NUMBERS; do
-            echo "----------------------------------------"
-            echo "Attempting to rebase PR #$PR..."
+          # 3. Loop through each PR number in the array
+          for PR in "${PR_ARRAY[@]}"; do
+            # Group logs in the GitHub Actions UI for better readability
+            echo "::group::Attempting to rebase PR #$PR"
           
-            # 4. Attempt the rebase safely. 
-            # We temporarily turn off 'exit-on-error' (set +e) so a failed rebase doesn't crash the whole job.
-            set +e 
-            # 2>&1 redirects standard error into standard output so we can capture both
-            OUTPUT=$(gh pr update-branch "$PR" --rebase 2>&1)
-            EXIT_CODE=$?
-            set -e # Turn 'exit-on-error' back on for safety
-          
-            if [ $EXIT_CODE -eq 0 ]; then
+            # 4. Attempt the rebase safely using an inline 'if' statement
+            # This captures the output and checks the exit code
+            if OUTPUT=$(gh pr update-branch "$PR" --rebase 2>&1); then
               echo "✅ Successfully rebased PR #$PR."
-          
-              # Post a success comment to the PR
               gh pr comment "$PR" --body "✅ Successfully rebased by **${{ github.workflow }}**"
-          
             else
-              echo "⚠️ Skipping PR #$PR. Rebase failed."
+              echo "⚠️ Rebase failed for PR #$PR. Merge conflicts likely."
               echo "❌ Error Details: $OUTPUT"
-
-              # Post a failure comment to the PR
-              gh pr comment "$PR" --body "❌ Failed to rebase automatically by **${{ github.workflow }}**"
+              gh pr comment "$PR" --body "❌ **Autorebase Failed:** Merge conflicts detected. Please resolve manually."
+          
+              # Optional but recommended: Remove the label so it doesn't keep failing on every push
+              gh pr edit "$PR" --remove-label "--autorebase"
+              echo "Removed '--autorebase' label from PR #$PR."
             fi
+          
+            echo "::endgroup::"
           done
-          echo "----------------------------------------"
+          
           echo "Autorebase cycle complete!"
